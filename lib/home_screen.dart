@@ -1,9 +1,13 @@
+import 'dart:convert'; // For JSON encoding/decoding
 import 'dart:io';
+import 'package:contact/contact_model.dart';
 import 'package:contact/custom_app_bar.dart';
+import 'package:contact/widgets/contact_card.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lottie/lottie.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Local storage
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -15,29 +19,38 @@ class _HomeScreenState extends State<HomeScreen> {
   // 1. VARIABLES & CONTROLLERS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Text controllers for name, email, and phone input fields
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
 
-  /// Stores the selected contact image from gallery
   File? _contactImage;
-
-  /// null = add mode, number = edit mode (index of contact being edited)
   int? _editIndex;
 
-  /// Text styles for the UI
-  final _style = GoogleFonts.inter(fontWeight: FontWeight.w500, fontSize: 20, height: 1.0, letterSpacing: 0, color: Colors.white);
-  final _style0 = GoogleFonts.inter(fontWeight: FontWeight.w300, fontSize: 16, height: 0, letterSpacing: 0, color: Colors.white);
+  final _style = GoogleFonts.inter(
+      fontWeight: FontWeight.w500,
+      fontSize: 20,
+      height: 1.0,
+      letterSpacing: 0,
+      color: Colors.white);
+  final _style0 = GoogleFonts.inter(
+      fontWeight: FontWeight.w300,
+      fontSize: 16,
+      height: 0,
+      letterSpacing: 0,
+      color: Colors.white);
 
-  /// List to store all contacts with images
-  List<Map<String, dynamic>> contacts = [];
+  List<Contact> contacts = [];
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // 2. DISPOSE Method to clear data
+  // 2. LIFECYCLE
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Cleanup text controllers when widget is disposed
+  @override
+  void initState() {
+    super.initState();
+    _loadFromDisk(); // Load data as soon as the screen is created
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -47,15 +60,49 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // 3. HELPER METHOD - Build contact field Data of user
+  // 3. STORAGE METHODS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Build a single contact field with divider
+  // Saves the entire list to local storage
+  Future<void> _saveToDisk() async {
+    final prefs = await SharedPreferences.getInstance();
+    // Convert our list of objects into a single JSON string
+    String encodedData = jsonEncode(contacts.map((c) => c.toJson()).toList());
+    await prefs.setString('contacts_list', encodedData);
+  }
+
+  // Reads the list from local storage
+  Future<void> _loadFromDisk() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? encodedData = prefs.getString('contacts_list');
+
+    // How to think about it: Check if we have anything in the "filing cabinet" first.
+    if (encodedData != null && encodedData.isNotEmpty) {
+      try {
+        List<dynamic> decodedData = jsonDecode(encodedData);
+        setState(() {
+          // Convert each map back into a Contact object
+          contacts = decodedData.map((item) => Contact.fromJson(item)).toList();
+        });
+        print("Successfully loaded ${contacts.length} contacts");
+      } catch (e) {
+        print("Error loading contacts: $e");
+      }
+    } else {
+      print("No saved contacts found.");
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 4. HELPER METHODS
+  // ═══════════════════════════════════════════════════════════════════════════
+
   Widget _buildContactField(String placeholder, String value) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(value.isEmpty ? placeholder : value, style: _style0, maxLines: 1, overflow: TextOverflow.ellipsis),
+        Text(value.isEmpty ? placeholder : value,
+            style: _style0, maxLines: 1, overflow: TextOverflow.ellipsis),
         const SizedBox(height: 12),
         Container(height: 1, width: 150, color: Colors.white24),
         const SizedBox(height: 12),
@@ -63,12 +110,33 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // 4. UI - MODAL BOTTOM SHEET ( when press button show sheet )
-  // ═══════════════════════════════════════════════════════════════════════════
+  void _showContactBottomSheet({int? index}) {
+    if (index != null) {
+      _editIndex = index;
+      _nameController.text = contacts[index].name;
+      _emailController.text = contacts[index].email;
+      _phoneController.text = contacts[index].phone;
+      _contactImage = contacts[index].image;
+    } else {
+      _editIndex = null;
+      _nameController.clear();
+      _emailController.clear();
+      _phoneController.clear();
+      _contactImage = null;
+    }
 
-  /// Build the modal bottom sheet for adding/editing contacts
-  Widget _onPressSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: _buildSheetContent(),
+      ),
+    );
+  }
+
+  Widget _buildSheetContent() {
     return StatefulBuilder(
       builder: (context, setSheetState) {
         return Container(
@@ -80,18 +148,18 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.all(15),
             child: SingleChildScrollView(
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Row(
                     children: [
-                      /// Image picker button - tap to select photo from gallery
                       GestureDetector(
                         onTap: () async {
-                          final select = await ImagePicker().pickImage(source: ImageSource.gallery);
+                          final select = await ImagePicker()
+                              .pickImage(source: ImageSource.gallery);
                           if (select != null) {
                             setSheetState(() {
                               _contactImage = File(select.path);
                             });
-                            setState(() {});
                           }
                         },
                         child: ClipRRect(
@@ -104,143 +172,41 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ? Image.file(
                                     _contactImage!,
                                     width: 130,
-                                    height: 100,
+                                    height: 130,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return const Icon(Icons.error, size: 50);
-                                    },
                                   )
-                                : Image.asset('assets/images/media.png', width: 100, height: 100, fit: BoxFit.cover),
+                                : Image.asset('assets/images/media.png',
+                                    width: 100, height: 100, fit: BoxFit.cover),
                           ),
                         ),
                       ),
-                      SizedBox(width: 15),
-
-                      /// Display contact data preview
+                      const SizedBox(width: 15),
                       Expanded(
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildContactField('User Name', _nameController.text), _buildContactField('example@email.com', _emailController.text), _buildContactField('phoneNumber', _phoneController.text)]),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildContactField('User Name', _nameController.text),
+                            _buildContactField('example@email.com', _emailController.text),
+                            _buildContactField('phoneNumber', _phoneController.text)
+                          ],
+                        ),
                       ),
                     ],
                   ),
-                  SizedBox(height: 10),
-
-                  /// Name input field
-                  SizedBox(
-                    width: 370,
-                    height: 50,
-                    child: TextField(
-                      controller: _nameController,
-                      onChanged: (_) => setSheetState(() {}), // refresh preview
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
-                        labelText: 'Enter Name',
-                        labelStyle: const TextStyle(color: Colors.white54),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.white24),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.white),
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 10),
-
-                  /// Email input field
-                  SizedBox(
-                    width: 370,
-                    height: 50,
-                    child: TextField(
-                      controller: _emailController,
-                      onChanged: (_) => setSheetState(() {}),
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        labelText: 'Enter Email',
-                        labelStyle: const TextStyle(color: Colors.white54),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.white24),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.white),
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 10),
-
-                  /// Phone input field
-                  SizedBox(
-                    width: 370,
-                    height: 50,
-                    child: TextField(
-                      controller: _phoneController,
-                      onChanged: (_) => setSheetState(() {}),
-                      // refresh preview
-                      style: const TextStyle(color: Colors.white),
-                      keyboardType: TextInputType.phone,
-                      decoration: InputDecoration(
-                        labelText: 'Enter Phone',
-                        labelStyle: const TextStyle(color: Colors.white54),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.white24),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.white),
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 10),
-
-                  // ─────────────────────────────────────────────────────────────────
-                  // Add / Update Contact button
-                  // ─────────────────────────────────────────────────────────────────
+                  const SizedBox(height: 20),
+                  _buildTextField(_nameController, 'Enter Name', (val) => setSheetState(() {})),
+                  const SizedBox(height: 10),
+                  _buildTextField(_emailController, 'Enter Email', (val) => setSheetState(() {})),
+                  const SizedBox(height: 10),
+                  _buildTextField(_phoneController, 'Enter Phone', (val) => setSheetState(() {}),
+                      keyboardType: TextInputType.phone),
+                  const SizedBox(height: 20),
                   ElevatedButton(
-                    onPressed: () {
-                      String name = _nameController.text;
-                      String email = _emailController.text;
-                      String phone = _phoneController.text;
-
-                      /// Validate all fields are filled
-                      if (name.isEmpty || email.isEmpty || phone.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill all fields')));
-                        return;
-                      }
-
-                      setState(() {
-                        if (_editIndex != null) {
-                          // ── EDIT MODE: update existing contact ──
-                          contacts[_editIndex!] = {'name': name, 'email': email, 'phone': phone, 'image': _contactImage};
-                          _editIndex = null; // reset back to add mode
-                        } else {
-                          // ── ADD MODE: add new contact ──
-                          contacts.add({'name': name, 'email': email, 'phone': phone, 'image': _contactImage});
-                        }
-                      });
-
-                      /// Clear all input fields
-                      _nameController.clear();
-                      _emailController.clear();
-                      _phoneController.clear();
-                      setState(() {
-                        _contactImage = null;
-                      });
-
-                      /// Close modal
-                      Navigator.pop(context);
-                    },
+                    onPressed: _saveContact,
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size(double.infinity, 50),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    // Button label changes based on mode
                     child: Text(_editIndex != null ? "Update Contact" : "Add Contact"),
                   ),
                 ],
@@ -252,219 +218,109 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildTextField(
+      TextEditingController controller, String label, Function(String) onChanged,
+      {TextInputType keyboardType = TextInputType.text}) {
+    return SizedBox(
+      height: 55,
+      child: TextField(
+        controller: controller,
+        onChanged: onChanged,
+        style: const TextStyle(color: Colors.white),
+        keyboardType: keyboardType,
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(color: Colors.white54),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Colors.white24),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Colors.white),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _saveContact() {
+    String name = _nameController.text;
+    String email = _emailController.text;
+    String phone = _phoneController.text;
+
+    if (name.isEmpty || email.isEmpty || phone.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Please fill all fields')));
+      return;
+    }
+
+    setState(() {
+      final newContact = Contact(name: name, email: email, phone: phone, image: _contactImage);
+      if (_editIndex != null) {
+        contacts[_editIndex!] = newContact;
+      } else {
+        contacts.add(newContact);
+      }
+    });
+
+    _saveToDisk(); // Save the updated list to storage
+    Navigator.pop(context);
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
-  // 5. UI - MAIN BUILD
+  // 4. MAIN BUILD
   // ═══════════════════════════════════════════════════════════════════════════
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
-
-      // ───────────────────────────────────────────────────────────────────────
-      // App Bar--------
-      // ───────────────────────────────────────────────────────────────────────
-
-    appBar: CustomAppBar(),
-      // ───────────────────────────────────────────────────────────────────────
-      // Body: Show empty state or contacts grid
-      // ───────────────────────────────────────────────────────────────────────
-      body: contacts.isEmpty ?
-            /// Empty state - no contacts added
-            SingleChildScrollView(
-              child: Column(
-                children: [
-                  Lottie.asset('assets/images/empty.json', width: 400, height: 400, repeat: true),
-                  SizedBox(height: 16),
-                  Text('There is No Contacts Added Here', style: _style),
-                ],
-              ),
-            )
-          :
-            /// Contacts grid with card design
-            SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 6, mainAxisSpacing: 6, childAspectRatio: 0.5),
-                  itemCount: contacts.length,
-                  itemBuilder: (context, index) {
-                    return Card(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      child: Column(
-                        children: [
-                          // ─────────────────────────────────────────────────
-                          // Contact Image Section
-                          // ─────────────────────────────────────────────────
-                          Expanded(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                                image: contacts[index]['image'] != null ? DecorationImage(image: FileImage(contacts[index]['image']!), fit: BoxFit.cover) : null,
-                                color: Colors.grey[300],
-                              ),
-                              child: Stack(
-                                children: [
-                                  /// Name badge on image
-                                  Positioned(
-                                    bottom: 12,
-                                    left: 12,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
-                                      child: Text(
-                                        contacts[index]['name']!,
-                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ),
-
-                                  /// Edit button on top right
-                                  Positioned(
-                                    top: 8,
-                                    right: 8,
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        // Set edit mode with the contact's index
-                                        _editIndex = index;
-                                        // Pre-fill fields with existing contact data
-                                        _nameController.text = contacts[index]['name']!;
-                                        _emailController.text = contacts[index]['email']!;
-                                        _phoneController.text = contacts[index]['phone']!;
-                                        _contactImage = contacts[index]['image'];
-
-                                        showModalBottomSheet(
-                                          context: context,
-                                          isScrollControlled: true,
-                                          builder: (context) => Padding(
-                                            padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-                                            child: _onPressSheet(),
-                                          ),
-                                        );
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(color: Colors.blue, borderRadius: BorderRadius.circular(8)),
-                                        child: const Icon(Icons.edit, color: Colors.white, size: 16),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          // ─────────────────────────────────────────────────
-                          // Contact Info Section
-                          // ─────────────────────────────────────────────────
-                          Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                /// Email with icon
-                                Row(
-                                  children: [
-                                    const Icon(Icons.email_rounded, size: 18, color: Colors.grey),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        contacts[index]['email']!,
-                                        style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-
-                                const SizedBox(height: 8),
-
-                                /// Phone with icon
-                                Row(
-                                  children: [
-                                    const Icon(Icons.phone, size: 18, color: Colors.grey),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        contacts[index]['phone']!,
-                                        style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-
-                                const SizedBox(height: 12),
-
-                                /// Delete button
-                                GestureDetector(
-                                  onTap: () {
-                                    setState(() {
-                                      contacts.removeAt(index);
-                                    });
-                                  },
-                                  child: Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.symmetric(vertical: 10),
-                                    decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(8)),
-                                    child: const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.delete, color: Colors.white, size: 16),
-                                        SizedBox(width: 4),
-                                        Text(
-                                          'Delete',
-                                          style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-
-      // ───────────────────────────────────────────────────────────────────────
-      // Floating Action Button - Add new contact
-      // ───────────────────────────────────────────────────────────────────────
+      appBar: const CustomAppBar(),
+      body: contacts.isEmpty ? _buildEmptyState() : _buildContactsGrid(),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // Reset to add mode
-          _editIndex = null;
-
-          /// Clear fields for new contact
-          _nameController.clear();
-          _emailController.clear();
-          _phoneController.clear();
-          setState(() {
-            _contactImage = null;
-          });
-
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            builder: (context) => Padding(
-              padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-              child: _onPressSheet(),
-            ),
-          );
-        },
+        onPressed: () => _showContactBottomSheet(),
         backgroundColor: Colors.white,
         child: const Icon(Icons.add_rounded),
       ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return SingleChildScrollView(
+      child: Center(
+        child: Column(
+          children: [
+            Lottie.asset('assets/images/empty.json', width: 400, height: 400, repeat: true),
+            const SizedBox(height: 16),
+            Text('There is No Contacts Added Here', style: _style),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContactsGrid() {
+    return GridView.builder(
+      padding: const EdgeInsets.all(16.0),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        childAspectRatio: 0.55,
+      ),
+      itemCount: contacts.length,
+      itemBuilder: (context, index) {
+        return ContactCard(
+          contact: contacts[index],
+          onEdit: () => _showContactBottomSheet(index: index),
+          onDelete: () {
+            setState(() {
+              contacts.removeAt(index);
+            });
+            _saveToDisk(); // Save the updated list after deletion
+          },
+        );
+      },
     );
   }
 }
