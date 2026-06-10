@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'package:contact/contact_model.dart';
+import 'package:contact/main.dart';
 import 'package:flutter/material.dart';
 
 class ContactCard extends StatelessWidget {
@@ -8,11 +8,11 @@ class ContactCard extends StatelessWidget {
   final VoidCallback onDelete;
 
   const ContactCard({
-    Key? key,
+    super.key,
     required this.contact,
     required this.onEdit,
     required this.onDelete,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -48,15 +48,14 @@ class ContactCard extends StatelessWidget {
                     ),
                   ),
                   Positioned(
-                    top: 8,
-                    right: 8,
+                    top: 10,
+                    right: 10,
                     child: GestureDetector(
                       onTap: onEdit,
                       child: Container(
                         padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                            color: Colors.blue, borderRadius: BorderRadius.circular(8)),
-                        child: const Icon(Icons.edit, color: Colors.white, size: 16),
+                        decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                        child: const Icon(Icons.edit, color: Colors.blue, size: 18),
                       ),
                     ),
                   ),
@@ -69,7 +68,7 @@ class ContactCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildInfoRow(Icons.email_rounded, contact.email),
+                _buildInfoRow(Icons.email_rounded, contact.email), // Email back on top
                 const SizedBox(height: 8),
                 _buildInfoRow(Icons.phone, contact.phone),
                 const SizedBox(height: 12),
@@ -78,17 +77,15 @@ class ContactCard extends StatelessWidget {
                   child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration:
-                        BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(8)),
-                    child: const Row(
+                    decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(8)),
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.delete, color: Colors.white, size: 16),
-                        SizedBox(width: 4),
+                        const Icon(Icons.delete, color: Colors.white, size: 16),
+                        const SizedBox(width: 4),
                         Text(
-                          'Delete',
-                          style: TextStyle(
-                              color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                          appLocale.value.languageCode == 'ar' ? 'حذف' : 'Delete',
+                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),

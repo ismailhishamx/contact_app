@@ -13,24 +13,23 @@ class Contact {
     this.image,
   });
 
-  // Convert a Contact object into a Map (JSON)
-  // How to think about it: We create a simple dictionary of strings so the computer can save it easily.
+  // Turn Object -> JSON String
   Map<String, dynamic> toJson() {
     return {
       'name': name,
       'email': email,
       'phone': phone,
-      'imagePath': image?.path, // We save the file path, not the actual file object
+      'imagePath': image?.path,
     };
   }
 
-  // Create a Contact object from a Map (JSON)
-  // How to think about it: We take the saved dictionary and rebuild the Contact object.
+  // Turn JSON String -> Object
+  // How to think about it: Use ?? (the "Otherwise" operator) to provide default values if data is missing.
   factory Contact.fromJson(Map<String, dynamic> json) {
     return Contact(
-      name: json['name'],
-      email: json['email'],
-      phone: json['phone'],
+      name: json['name'] ?? 'Unknown',
+      email: json['email'] ?? 'No Email',
+      phone: json['phone'] ?? 'No Phone',
       image: json['imagePath'] != null ? File(json['imagePath']) : null,
     );
   }

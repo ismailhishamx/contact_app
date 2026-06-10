@@ -9,19 +9,33 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _shimmerAnimation;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
 
+    // How to think about it: The controller is the "timer" for the animation.
     _controller = AnimationController(
       duration: const Duration(seconds: 2),
       vsync: this,
-    )..repeat(reverse: true);
+    );
 
-    _shimmerAnimation = Tween<double>(begin: -1, end: 1).animate(_controller);
+    // Zoom Animation: Starts at 50% size and grows to 100%.
+    _scaleAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutBack), // Adds a slight "bounce"
+    );
 
+    // Fade Animation: Starts invisible and becomes fully solid.
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
+    );
+
+    // Start the animation immediately
+    _controller.forward();
+
+    // Wait 3 seconds, then go to the Home Screen
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
         Navigator.pushReplacementNamed(context, 'homeScreen');
@@ -38,21 +52,14 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xff111821), // Matches app background
       body: Center(
-        child: ShaderMask(
-          shaderCallback: (bounds) {
-            return LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Colors.white, Colors.white24, Colors.white],
-              stops: [
-                _shimmerAnimation.value - 0.3,
-                _shimmerAnimation.value,
-                _shimmerAnimation.value + 0.3,
-              ],
-            ).createShader(bounds);
-          },
-          child: Image.asset('assets/images/logo.png', width: 200, height: 200),
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: ScaleTransition(
+            scale: _scaleAnimation,
+            child: Image.asset('assets/images/logo.png', width: 220, height: 220),
+          ),
         ),
       ),
     );
