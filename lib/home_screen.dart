@@ -1,4 +1,3 @@
-import 'dart:convert'; // For JSON encoding/decoding
 import 'dart:io';
 import 'package:contact/contact_model.dart';
 import 'package:contact/custom_app_bar.dart';
@@ -8,6 +7,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // Local storage
+import 'dart:convert'; // For JSON encoding/decoding
+
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -26,18 +27,8 @@ class _HomeScreenState extends State<HomeScreen> {
   File? _contactImage;
   int? _editIndex;
 
-  final _style = GoogleFonts.inter(
-      fontWeight: FontWeight.w500,
-      fontSize: 20,
-      height: 1.0,
-      letterSpacing: 0,
-      color: Colors.white);
-  final _style0 = GoogleFonts.inter(
-      fontWeight: FontWeight.w300,
-      fontSize: 16,
-      height: 0,
-      letterSpacing: 0,
-      color: Colors.white);
+  final _style = GoogleFonts.inter(fontWeight: FontWeight.w500, fontSize: 20, height: 1.0, letterSpacing: 0, color: Colors.white);
+  final _style0 = GoogleFonts.inter(fontWeight: FontWeight.w300, fontSize: 16, height: 0, letterSpacing: 0, color: Colors.white);
 
   List<Contact> contacts = [];
 
@@ -101,8 +92,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(value.isEmpty ? placeholder : value,
-            style: _style0, maxLines: 1, overflow: TextOverflow.ellipsis),
+        Text(value.isEmpty ? placeholder : value, style: _style0, maxLines: 1, overflow: TextOverflow.ellipsis),
         const SizedBox(height: 12),
         Container(height: 1, width: 150, color: Colors.white24),
         const SizedBox(height: 12),
@@ -154,8 +144,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       GestureDetector(
                         onTap: () async {
-                          final select = await ImagePicker()
-                              .pickImage(source: ImageSource.gallery);
+                          final select = await ImagePicker().pickImage(source: ImageSource.gallery);
                           if (select != null) {
                             setSheetState(() {
                               _contactImage = File(select.path);
@@ -168,28 +157,13 @@ class _HomeScreenState extends State<HomeScreen> {
                             width: 130,
                             height: 130,
                             color: Colors.grey[300],
-                            child: _contactImage != null
-                                ? Image.file(
-                                    _contactImage!,
-                                    width: 130,
-                                    height: 130,
-                                    fit: BoxFit.cover,
-                                  )
-                                : Image.asset('assets/images/media.png',
-                                    width: 100, height: 100, fit: BoxFit.cover),
+                            child: _contactImage != null ? Image.file(_contactImage!, width: 130, height: 130, fit: BoxFit.cover) : Image.asset('assets/images/media.png', width: 100, height: 100, fit: BoxFit.cover),
                           ),
                         ),
                       ),
                       const SizedBox(width: 15),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildContactField('User Name', _nameController.text),
-                            _buildContactField('example@email.com', _emailController.text),
-                            _buildContactField('phoneNumber', _phoneController.text)
-                          ],
-                        ),
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_buildContactField('User Name', _nameController.text), _buildContactField('example@email.com', _emailController.text), _buildContactField('phoneNumber', _phoneController.text)]),
                       ),
                     ],
                   ),
@@ -198,8 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 10),
                   _buildTextField(_emailController, 'Enter Email', (val) => setSheetState(() {})),
                   const SizedBox(height: 10),
-                  _buildTextField(_phoneController, 'Enter Phone', (val) => setSheetState(() {}),
-                      keyboardType: TextInputType.phone),
+                  _buildTextField(_phoneController, 'Enter Phone', (val) => setSheetState(() {}), keyboardType: TextInputType.phone),
                   const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: _saveContact,
@@ -218,9 +191,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildTextField(
-      TextEditingController controller, String label, Function(String) onChanged,
-      {TextInputType keyboardType = TextInputType.text}) {
+  Widget _buildTextField(TextEditingController controller, String label, Function(String) onChanged, {TextInputType keyboardType = TextInputType.text}) {
     return SizedBox(
       height: 55,
       child: TextField(
@@ -250,8 +221,7 @@ class _HomeScreenState extends State<HomeScreen> {
     String phone = _phoneController.text;
 
     if (name.isEmpty || email.isEmpty || phone.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Please fill all fields')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill all fields')));
       return;
     }
 
@@ -275,13 +245,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const CustomAppBar(),
+      appBar:  CustomAppBar(),
       body: contacts.isEmpty ? _buildEmptyState() : _buildContactsGrid(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showContactBottomSheet(),
-        backgroundColor: Colors.white,
-        child: const Icon(Icons.add_rounded),
-      ),
+      floatingActionButton: FloatingActionButton(onPressed: () => _showContactBottomSheet(), backgroundColor: Colors.white, child: const Icon(Icons.add_rounded)),
     );
   }
 
@@ -302,12 +268,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildContactsGrid() {
     return GridView.builder(
       padding: const EdgeInsets.all(16.0),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 0.55,
-      ),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 0.55),
       itemCount: contacts.length,
       itemBuilder: (context, index) {
         return ContactCard(
