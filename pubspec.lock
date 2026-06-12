@@ -317,6 +317,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.20.2"
+  ir_sensor_plugin:
+    dependency: "direct main"
+    description:
+      name: ir_sensor_plugin
+      sha256: c22311411fc71a133533a5b27665beac6e57f852d7cd1c0a9aa37d206fefb5dc
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.1"
   jni:
     dependency: transitive
     description:
